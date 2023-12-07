@@ -2,6 +2,7 @@ clean_block <- function(block, trials) {
     lt <- length(trials[['is_manipulated']])
     z <- rep(0, lt)
     trials$rt <- z
+    trials$mt <- z
     trials$target_angle <- z
     trials$reach_angle <- z
     trials$diff_angle <- z
@@ -25,7 +26,7 @@ clean_block <- function(block, trials) {
 
     # find the trial start time
     #idx <- which(trial[['end_state']] - trial[['start_state']] == 3)[2]
-    idx <- min(which(trial[['end_state']] == 4))
+    idx <- min(which(trial[['end_state']] == 7))
     start_time <- trial[['vbl_time']][idx]
     evts[, distance := sqrt(x^2 + y^2)]
     evts[, t := t - start_time]
@@ -36,7 +37,7 @@ clean_block <- function(block, trials) {
     # if you wanted to peek at individual trials, this is the point at which to do so
     
     # compute RT and MT on relevant part of trial
-    subevt <- evts[state==4]
+    subevt <- evts[state==7]
     # RT: diff between moving[['vbl_time']][1] and moved 1cm from start
     # MT: from https://www.biorxiv.org/content/10.1101/2020.09.14.297143v4.full.pdf
     # heading angle was defined by two imaginary lines, one from the start position to the target and the other from the start position to the hand position at maximum movement velocity
@@ -44,6 +45,13 @@ clean_block <- function(block, trials) {
     idx <- which(subevt[, distance] > 10)[1]
     rt <- subevt[idx, t]
     fastest <- which.max(subevt[, speed])[1]
+    
+    # Calculate mt (movement time)
+    mt <- subevt[fastest, t] - rt
+    
+    # ... (other calculations from your script)
+    
+
     # hand angle at fastest time
     ang <- rad2deg(do.call(atan2, subevt[fastest, c('y', 'x')]))
     # target angle
@@ -58,6 +66,8 @@ clean_block <- function(block, trials) {
     trials$reach_angle[i] <- ang
     trials$diff_angle[i] <- diff_ang
     trials$trial[i] <- i
+    # Assign mt to your trials dataframe
+    trials$mt[i] <- mt
     }
 
     trials$frames <- NULL
