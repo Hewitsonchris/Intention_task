@@ -48,10 +48,10 @@ classdef StateMachine < handle
         score = struct('val', 0, 'color', [255 255 255]);
         added_pts = struct('val', 0, 'vis', false);
         _partway = true;
-	first_trial = true;        
-        window = 15
-        aim_history = nan(15, 1)
-        ha_history = nan(15, 1)
+	    first_trial = true;        
+        window = 20
+        aim_history = nan(20, 1)
+        ha_history = nan(20, 1)
         av_history = NaN
         temp_key = false;
     end
@@ -97,27 +97,34 @@ classdef StateMachine < handle
                     sm.cursor.vis = false;
                     sm.center.vis = true;
                     sm.ep_feedback.vis = false;
-                    sm.target.vis = false;
+                    
+		    %%% CHANGE TARGET VIS FOR TEST PHASE %%%%%
+		    %%% CHANGE ALPHA? OR REMOVE ALTOGETHER?%%%
+                    if trial.label == trial_labels.WASHOUT
+                    	sm.target.vis = true;
+                    else
+                    	sm.target.vis = true;
+                    end
                     sm.target.color = tgt.block.target.off_color;
                     sm.judge.vis = false;
                     sm.conf_o_meter.vis = false;
                     sm.instruct.vis = true;
                     sm.keys.flush();
-                    txt = 'Reach directly to the target.';
+                    txt = '';
                     
                     if trial.is_judged && ~sm.have_judged
                         txt = 'Where should you aim\nyour hand?';
                     elseif trial.is_judged && sm.have_judged
                         txt = 'Try to get the cursor\nthrough the target.';
-                        sm.judge.vis = true;
+                        sm.judge.vis = false;
                         sm.instruct.vis = false;
                     end
                     
                     if trial.label == trial_labels.WASHOUT
                     	if sm.first_trial
-                    		txt = 'Now, you WILL NOT see the TARGET or need to AIM.\n Continue reaching to where you remember AIMING.\nPress [Enter] to continue';
+                    		txt = '';
                     	else
-                    	   	txt = 'Continue reaching';
+                    	   	txt = '';
                     	end
                     end
 
@@ -127,7 +134,7 @@ classdef StateMachine < handle
                     t = trial.target;
                     sm.target.x = sm.un.x_mm2px(t.x) + sm.center.x;
                     sm.target.y = sm.un.y_mm2px(t.y) + sm.center.y;
-                    sm.hold_time = est_next_vbl + 0.5;
+                    sm.hold_time = est_next_vbl + 0.3;
                     sm.vis_time = est_next_vbl + 0.5;
                     sm.trial_start_time = est_next_vbl;
                     sm.debounce = ~sm.have_judged; % only debounce if haven't judged
@@ -158,8 +165,8 @@ classdef StateMachine < handle
                                    sm.un.x_mm2px(tgt.block.center.size - tgt.block.cursor.size) * 0.5)
 
 		     
-                    sm.target.vis = trial.label != trial_labels.WASHOUT;
-                    sm.judge.vis = trial.label != trial_labels.WASHOUT;
+                    sm.target.vis = true; %%%%%%%%%%%%%%%%%%%% CHANGED!!! %%%%%%%%%%%%%%%%%%%%%%%%%
+                    sm.judge.vis = false;
                     
                     if trial.label == trial_labels.BASELINE;
                     	sm.judge.vis = false;
@@ -172,7 +179,9 @@ classdef StateMachine < handle
                     end
                    
                     if trial.label == trial_labels.WASHOUT
-                       sm.av_history = ((nanmean(sm.aim_history) + nanmean(sm.ha_history))/2);           
+                       target_angle = atan2d(sm.target.y - sm.center.y, sm.target.x - sm.center.x);
+			           sm.av_history = ((nanmean(sm.ha_history +90)) - (target_angle + 90))/2;
+
                     end
                     
                     if ~sm.debounce && est_next_vbl >= sm.hold_time
@@ -180,23 +189,12 @@ classdef StateMachine < handle
                             sm.state = states.JUDGE;
                         else                        
                          % either no judgement, or have already done so this trial
-                         
-                         % For the first reach of WASH, ensure that the subject reads the new instructions and presses ENTER
-                         if trial.label == trial_labels.WASHOUT
-                         	if sm.first_trial
-                         	 if sm.temp_key
-                         	  sm.state = states.REACH;
-                         	  sm.temp_key = false;
-                         	 else
-                         	  return
-                         	 end
-                         	end
-                         end
+
                          sm.state = states.REACH;
                          end
                     end
                 else
-                    sm.hold_time = est_next_vbl + 0.5; % 500 ms in the future
+                    sm.hold_time = est_next_vbl + 0.3; % 25 ms in the future
                     sm.debounce = false;
                 end
             end
@@ -204,7 +202,7 @@ classdef StateMachine < handle
             if sm.state == states.JUDGE
                 if sm.entering()
                     sm.have_judged = true;
-                    sm.judge.vis = true;
+                    sm.judge.vis = false;
                     sm.cursor.vis = false;
                     % set judge default pos, width
                     sm.instruct.vis = true;
@@ -219,7 +217,7 @@ classdef StateMachine < handle
                     sm.cursor.vis = true;
                     sm.instruct.text = 'Where should you aim\nyour hand?';
                 else
-                    sm.instruct.text = 'Remember to press [Enter] before moving.';
+                    sm.instruct.text = '';
                     sm.cursor.vis = false;
                 end
                 spd = tgt.block.speed * w.ifi * 5; % we *could* calc a real dt, but why?
@@ -250,21 +248,28 @@ classdef StateMachine < handle
                 if sm.entering()
                    sm.have_judged = false;
                    
-                   sm.target.vis = trial.label != trial_labels.WASHOUT;
+                   sm.target.vis = false;
                    
                    if (trial.label == trial_labels.BASELINE)
                    	sm.judge.vis = false;
                    else
-                      sm.judge.vis = trial.label != trial_labels.WASHOUT;
+                      sm.judge.vis = false;
                    end
  
                     if (trial.label == trial_labels.WASHOUT)
-                     	sm.av_history = ((nanmean(sm.aim_history) + nanmean(sm.ha_history))/2);
-                     	((nanmean(sm.aim_history) + nanmean(sm.ha_history))/2)
-                    	% sm.judge.loc = sm.av_history;
+                       target_angle = atan2d(sm.target.y - sm.center.y, sm.target.x - sm.center.x);
+
+			sm.av_history = ((nanmean(sm.ha_history +90)) - (target_angle + 90))/2;
+                       
+
+                    	sm.judge.loc = sm.av_history;
                     	sm.first_trial = false;
                     	sm.judge.vis = false;
                     	sm.target.vis = false;
+                    
+                    else
+                    target_angle = atan2d(sm.target.y - sm.center.y, sm.target.x - sm.center.x);
+                    sm.av_history = ((nanmean(sm.ha_history +90)) - (target_angle + 90))/2;
                     end
                     
                      if trial.is_judged && ~sm.have_judged
@@ -286,21 +291,21 @@ classdef StateMachine < handle
 
                 if trial.online_feedback
                     cur_theta = atan2(sm.mouse.y - sm.center.y, sm.mouse.x - sm.center.x);
-                   
                     
                     if trial.is_manipulated
                         % get angle of target in deg, add clamp offset, then to rad
                         if trial.label != trial_labels.WASHOUT
                         target_angle = atan2d(sm.target.y - sm.center.y, sm.target.x - sm.center.x);
-                        % ROTATION!
-                        theta = cur_theta + deg2rad(trial.manipulation_angle);
+                        % CLAMP!
+                        theta = deg2rad(target_angle + trial.manipulation_angle);
                         else 
-                        %CLAMP
-                        theta = deg2rad(sm.av_history);
+                        target_angle = atan2d(sm.target.y - sm.center.y, sm.target.x - sm.center.x);
+                        theta = deg2rad(target_angle + sm.av_history);
                         end
                     else
                         theta = cur_theta;
                     end
+
                     
                     sm.cursor.x = cur_dist * cos(theta) + sm.center.x;
                     sm.cursor.y = cur_dist * sin(theta) + sm.center.y;
@@ -341,19 +346,34 @@ classdef StateMachine < handle
                     
                     if trial.label != trial_labels.WASHOUT
                       sm.ha_history(2:sm.window) = sm.ha_history(1:sm.window-1);
-                      sm.ha_history(1) = rad2deg(cur_theta)+360;
-                      rad2deg(cur_theta)+360
-                    end
+                      sm.ha_history(1) = rad2deg(cur_theta);
+                      target_angle = atan2d(sm.target.y - sm.center.y, sm.target.x - sm.center.x) %degrees: 270 in tgt is -90
+                      
+                      %% convert sm.ha_history into target_angle reference frame
+                      
+                        if sm.ha_history(1) >= 270
+                        sm.ha_history(1) = ((sm.ha_history(1)- 270) * (-90 / 90)) - 90;
+                            elseif sm.ha_history(1) >= 180
+                        sm.ha_history(1) = ((sm.ha_history(1)- 180) * (180 / 90)) - 90;
+                            elseif sm.ha_history(1) >= 90
+                        sm.ha_history(1) = ((sm.ha_history(1) - 90) * (90 / 90));
+                            else
+                        sm.ha_history(1) = sm.ha_history(1) * (90 / 90);
+                            end
+                                end
+                    % Print sm.ha_history(1)
+    			disp(['Value of average relative to zero: ', num2str((nanmean(sm.ha_history +90)))]);	
                     
                     if trial.is_manipulated
                         % get angle of target in deg, add clamp offset, then to rad
                         if trial.label != trial_labels.WASHOUT
                         target_angle = atan2d(sm.target.y - sm.center.y, sm.target.x - sm.center.x);
- 			 % ROTATION!
-                        theta = cur_theta + deg2rad(trial.manipulation_angle);
+ 			 % clamp!
+                        theta = deg2rad(target_angle + trial.manipulation_angle);
                         else
-                        % CLAMP 
-                        theta =  deg2rad(sm.av_history);
+                        disp(['Value of new clamp relative to target: ', num2str(sm.av_history)]);	     				
+                        theta = deg2rad(sm.av_history)
+                        
                         end
                     else
                         theta = cur_theta;
