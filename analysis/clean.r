@@ -29,7 +29,7 @@ for (i in 1:length(data_files)) {
 
 dat <- rbindlist(dat)
 
-fwrite(dat, 'confidence-7subj.csv')
+fwrite(baseline_diff_angles, 'baseline.csv')
 # for each person, calculate baseline-corrected err
 # dat_cyc <- list()
 # ids <- unique(dat[['id']])
